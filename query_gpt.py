@@ -2,7 +2,8 @@
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+import subprocess
 
 import argparse
 import json
@@ -18,7 +19,7 @@ from copy import deepcopy
 from tqdm import tqdm
 
 from google.cloud import storage
-import numpy as np
+import numpy as np 
 
 from jax.config import config
 
@@ -55,6 +56,31 @@ class QueryDictWrapper:
 
 
 # Util funcs
+def download_blob(bucket_name, source_blob_name, destination_file_name):
+    """Downloads a blob from the bucket."""
+    # bucket_name = "your-bucket-name"
+    # source_blob_name = "storage-object-name"
+    # destination_file_name = "local/path/to/file"
+
+    storage_client = storage.Client()
+
+    bucket = storage_client.bucket(bucket_name)
+
+    # Construct a client side representation of a blob.
+    # Note `Bucket.blob` differs from `Bucket.get_blob` as it doesn't retrieve
+    # any content from Google Cloud Storage. As we don't need additional data,
+    # using `Bucket.blob` is preferred here.
+    blob = bucket.blob(source_blob_name)
+    blob.download_to_filename(destination_file_name)
+
+    print(
+        "Blob {} downloaded to {}.".format(
+            source_blob_name, destination_file_name
+        )
+    )
+
+
+
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
     # The path to your file to upload
@@ -120,7 +146,7 @@ def setup_gpt(setup_params):
 
     network = CausalTransformer(setup_params)
 
-    model_path = f"gs://{bucket}/{model_dir}/"
+    model_path = f"../{model_dir}/"
     network.state = read_ckpt(network.state, model_path, devices.shape[1])
     network.state = network.move_xmap(network.state, np.zeros(cores_per_replica))
 

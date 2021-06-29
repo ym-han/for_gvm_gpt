@@ -16,6 +16,7 @@
 
   "bucket": "coref_gpt",
   "model_dir": "slim_chkpt",
+  "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
 
   "orig_qd_path": "orig_querydicts/orig_qds_top160.p", 
   "qd_save_dir": "res_qdicts_top160",
