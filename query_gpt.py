@@ -2,7 +2,7 @@
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 import pathlib
 import argparse
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
     qdw_savefnm = f"qdw_{start_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
-    upload_blob(bucket, qdw_savefnm, "{qd_save_dir}/"+qdw_savefnm)
+    upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
 
 
 
