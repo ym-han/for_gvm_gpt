@@ -149,11 +149,11 @@ def setup_gpt(setup_params):
     network.state = read_ckpt(network.state, model_path, devices.shape[1])
     network.state = network.move_xmap(network.state, np.zeros(cores_per_replica))
 
-    return tokenizer, network
+    return tokenizer, network, total_batch
 
 
 """For interactive inference """
-def infer(setup_params, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
+def infer(setup_params, tokenizer, network, total_batch, context, top_p=0.9, temp=0.9, gen_len=10):
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -175,7 +175,7 @@ def infer(setup_params, tokenizer, network, infer_batch_sz:int, context, top_p=0
     print(f"completion done in {time.time() - start:06}s")
     return samples
 
-def ask_gpt(setup_params, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
+def ask_gpt(setup_params, tokenizer, network, context, top_p=0.9, temp=0.9, gen_len=10):
     #print(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
@@ -235,11 +235,10 @@ if __name__ == "__main__":
     setup_params = json.load(open(args.config))
     bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
     qd_save_dir = setup_params["qd_save_dir"]
-    infer_batch_sz = int(setup_params["cores_per_replica"])
-
+    
     # Set up model and model query function
-    tokenizer, network = setup_gpt(setup_params)
-    ask = partial(ask_gpt, setup_params, tokenizer, network, infer_batch_sz)
+    tokenizer, network, total_batch = setup_gpt(setup_params)
+    ask = partial(ask_gpt, setup_params, tokenizer, network, total_batch)
 
     # Load query dicts
     dest_qd_path = pathlib.Path(orig_qd_path)
@@ -254,6 +253,7 @@ if __name__ == "__main__":
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
     # Qeury GPT and update query dicts
+    infer_batch_sz = int(setup_params["cores_per_replica"])
     run_queries(infer_batch_sz, ask, qdicts_to_infer)
 
     # Save updated query dicts
