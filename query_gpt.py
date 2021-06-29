@@ -249,7 +249,7 @@ if __name__ == "__main__":
     n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
     end_idx = start_idx + n_qdicts_to_infer
 
-    all_query_dicts = pickle.load( open( full_query_dicts_path, "rb" ) )
+    all_query_dicts = pickle.load( open( dest_qd_path, "rb" ) )
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
     # Qeury GPT and update query dicts
