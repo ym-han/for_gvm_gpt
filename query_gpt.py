@@ -215,7 +215,7 @@ if __name__ == "__main__":
     ask = partial(ask_gpt, tokenizer, network, infer_batch_sz)
 
     # Load query dicts
-    start_idx = int(args.start_idx)
+    start_idx = int(args.startidx)
     n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
     end_idx = start_idx + n_qdicts_to_infer
 
