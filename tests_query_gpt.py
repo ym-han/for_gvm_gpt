@@ -69,3 +69,4 @@ test_eq( toy_ret_qds_2,
 
 # main logic
 # os.system("python query_gpt.py --config configs/test_config.json --startidx 0")
+# pickle.load( open("qdw_0.p", "rb"))
