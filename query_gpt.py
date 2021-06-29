@@ -2,7 +2,7 @@
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 import pathlib
 import argparse
@@ -252,12 +252,13 @@ if __name__ == "__main__":
     all_query_dicts = pickle.load( open( dest_qd_path, "rb" ) )
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
-    # Qeury GPT and update query dicts
+    # Qeury GPT and get updated query dicts
     infer_batch_sz = int(setup_params["cores_per_replica"])
-    run_queries(infer_batch_sz, ask, qdicts_to_infer)
+    ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
 
     # Save updated query dicts
-    qdw = QueryDictWrapper(start_idx, qdicts_to_infer)
+    qdw = QueryDictWrapper(start_idx, ret_qdicts)
+    logging.debug(qdw)
 
     qdw_savefnm = f"qdw_{start_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
