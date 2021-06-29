@@ -153,7 +153,7 @@ def setup_gpt(setup_params):
 
 
 """For interactive inference """
-def infer(setup_params, tokenizer, network, total_batch, context, top_p=0.9, temp=0.9, gen_len=10):
+def infer(setup_params=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -175,8 +175,8 @@ def infer(setup_params, tokenizer, network, total_batch, context, top_p=0.9, tem
     print(f"completion done in {time.time() - start:06}s")
     return samples
 
-def ask_gpt(setup_params, tokenizer, network, context, top_p=0.9, temp=0.9, gen_len=10):
-    #print(f"top_p is {top_p};temp is {temp}\n")
+def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
+    logging.info(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
     tokens = tokenizer.encode(context)
@@ -218,7 +218,7 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
     ret_qdicts = []
 
     for qd in query_dicts:
-        gpt_outs = ask_func(qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
+        gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
         batch_qds = make_k_copies(qd, batch_sz)
         lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
 
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     
     # Set up model and model query function
     tokenizer, network, total_batch = setup_gpt(setup_params)
-    ask = partial(ask_gpt, setup_params, tokenizer, network, total_batch)
+    ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
 
     # Load query dicts
     dest_qd_path = pathlib.Path(orig_qd_path)
