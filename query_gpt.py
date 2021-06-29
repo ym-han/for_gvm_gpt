@@ -153,7 +153,7 @@ def setup_gpt(setup_params):
 
 
 """For interactive inference """
-def infer(setup_params=None, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
+def infer(setup_params, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -175,7 +175,7 @@ def infer(setup_params=None, tokenizer, network, infer_batch_sz:int, context, to
     print(f"completion done in {time.time() - start:06}s")
     return samples
 
-def ask_gpt(setup_params=None, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
+def ask_gpt(setup_params, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
     #print(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
