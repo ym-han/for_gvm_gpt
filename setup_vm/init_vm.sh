@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-git clone https://github.com/ym-han/for_gvm_gpt.git
-
 sudo apt-get update --yes
 
 sudo apt-get install gcc python3-dev python3-setuptools
