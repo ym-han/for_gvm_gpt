@@ -79,6 +79,7 @@ def parse_args():
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Location of config file for setting up gpt-j")
+    parser.add_argument("--startidx", type=int, default=None, help="start idx of the list for this tpu")
 
     args = parser.parse_args()
     return args
