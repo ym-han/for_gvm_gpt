@@ -80,7 +80,6 @@ def download_blob(bucket_name, source_blob_name, destination_file_name):
     )
 
 
-
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
     # The path to your file to upload
@@ -212,6 +211,7 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
     # 1. For each qdict `qd`, make batch_sz number of replicates, and feed `qd` into GPT to get a list of batch_sz responses
     # 2. Augment the batch_sz replicates with the responses
     # 3. Return list of replicates
+    logging.debug(f"batch_sz is {batch_sz}")
 
     if len(query_dicts) == 0: logging.debug("`run_queries` got mt qd_dict list as input?!")
 
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
     # Qeury GPT and get updated query dicts
-    infer_batch_sz = int(setup_params["cores_per_replica"])
+    infer_batch_sz = int(setup_params["per_replica_batch"])
     ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
 
     # Save updated query dicts
@@ -263,17 +263,5 @@ if __name__ == "__main__":
     qdw_savefnm = f"qdw_{start_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
     upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
