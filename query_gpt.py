@@ -130,7 +130,6 @@ def setup_gpt(setup_params):
     bucket, model_dir = setup_params["bucket"], setup_params["model_dir"]
     per_replica_batch = setup_params["per_replica_batch"]
     cores_per_replica = setup_params["cores_per_replica"]
-    seq = setup_params["seq"]
 
     setup_params["sampler"] = nucleaus_sample
     setup_params["optimizer"] = optax.scale(0) #from colab version
@@ -154,7 +153,7 @@ def setup_gpt(setup_params):
 
 
 """For interactive inference """
-def infer(tokenizer, network, context, top_p=0.9, temp=1.0, gen_len=10):
+def infer(setup_params=None, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -176,8 +175,10 @@ def infer(tokenizer, network, context, top_p=0.9, temp=1.0, gen_len=10):
     print(f"completion done in {time.time() - start:06}s")
     return samples
 
-def ask_gpt(tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
+def ask_gpt(setup_params=None, tokenizer, network, infer_batch_sz:int, context, top_p=0.9, temp=0.9, gen_len=10):
     #print(f"top_p is {top_p};temp is {temp}\n")
+    seq = setup_params["seq"]
+
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -238,7 +239,7 @@ if __name__ == "__main__":
 
     # Set up model and model query function
     tokenizer, network = setup_gpt(setup_params)
-    ask = partial(ask_gpt, tokenizer, network, infer_batch_sz)
+    ask = partial(ask_gpt, setup_params, tokenizer, network, infer_batch_sz)
 
     # Load query dicts
     dest_qd_path = pathlib.Path(orig_qd_path)
