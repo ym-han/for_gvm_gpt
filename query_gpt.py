@@ -11,7 +11,6 @@ from functools import partial
 import itertools as itls
 from fastcore.all import *
 
-
 from dataclasses import dataclass
 import pickle
 from typing import Dict, Optional, Tuple, List
@@ -52,7 +51,7 @@ except:
 @dataclass
 class QueryDictWrapper:
     start_idx: int 
-    query_dicts: list[dict]
+    query_dicts: list
 
 
 # Util funcs
@@ -207,6 +206,7 @@ if __name__ == "__main__":
     args = parse_args()
     setup_params = json.load(open(args.config))
     bucket, gs_orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
+    qd_save_dir = setup_params["qd_save_dir"]
     infer_batch_sz = int(setup_params["cores_per_replica"])
 
     # Set up model and model query function
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     # Load query dicts
     start_idx = int(args.start_idx)
-    n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer"])
+    n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
     end_idx = start_idx + n_qdicts_to_infer
 
     full_query_dicts_path = f"gs://{bucket}/{gs_orig_qd_path}"

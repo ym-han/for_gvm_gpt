@@ -17,9 +17,9 @@
   "bucket": "coref_gpt",
   "model_dir": "slim_chkpt",
 
-  "orig_qd_path": "test_querydicts/orig_qds_test.p", 
-  "qd_save_dir": "test_querydicts",
-  "n_qdicts_to_infer": 1000,
+  "orig_qd_path": "orig_querydicts/orig_qds_top160.p", 
+  "qd_save_dir": "res_qdicts_top100",
+  "n_qdicts_to_infer_per_tpu": 4,
 
-  "name": "config_for_gpt_j_setup",
+  "name": "config_for_gpt_j_setup_top160",
 }
