@@ -19,7 +19,7 @@
 
   "orig_qd_path": "test_querydicts/orig_qds_test.p", 
   "qd_save_dir": "test_querydicts",
-  "n_qdicts_to_infer": 1000,
+  "n_qdicts_to_infer_per_tpu": 2,
 
-  "name": "config_for_gpt_j_setup",
+  "name": "TEST_config_for_gpt_j_setup",
 }
