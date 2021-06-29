@@ -21,5 +21,5 @@
   "qd_save_dir": "test_querydicts",
   "n_qdicts_to_infer_per_tpu": 2,
 
-  "name": "TEST_config_for_gpt_j_setup",
+  "name": "TEST_config_for_gpt_j_setup"
 }

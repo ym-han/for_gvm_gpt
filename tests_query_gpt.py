@@ -68,4 +68,4 @@ test_eq( toy_ret_qds_2,
 
 
 # main logic
-# os.system("python tests_query_gpt.py --config configs/TEST_config_gpt_j.json --startidx 0")
+# os.system("python query_gpt.py --config configs/test_config.json --startidx 0")

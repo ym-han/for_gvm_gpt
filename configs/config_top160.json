@@ -21,5 +21,5 @@
   "qd_save_dir": "res_qdicts_top160",
   "n_qdicts_to_infer_per_tpu": 4,
 
-  "name": "config_for_gpt_j_setup_top160",
+  "name": "config_for_gpt_j_setup_top160"
 }
