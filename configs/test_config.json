@@ -18,7 +18,6 @@
   "model_dir": "slim_chkpt",
   "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
 
-
   "orig_qd_path": "test_querydicts/orig_qds_test.p", 
   "qd_save_dir": "test_querydicts",
   "n_qdicts_to_infer_per_tpu": 2,

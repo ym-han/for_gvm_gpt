@@ -3,8 +3,8 @@
 
 import logging
 logging.basicConfig(level=logging.INFO)
-import subprocess
 
+import pathlib
 import argparse
 import json
 import os
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     # Init params
     args = parse_args()
     setup_params = json.load(open(args.config))
-    bucket, gs_orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
+    bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
     qd_save_dir = setup_params["qd_save_dir"]
     infer_batch_sz = int(setup_params["cores_per_replica"])
 
@@ -241,11 +241,14 @@ if __name__ == "__main__":
     ask = partial(ask_gpt, tokenizer, network, infer_batch_sz)
 
     # Load query dicts
+    dest_qd_path = pathlib.Path(orig_qd_path)
+    if not dest_qd_path.parent.is_dir(): dest_qd_path.parent.mkdir() 
+    download_blob(bucket, orig_qd_path,  orig_qd_path)
+
     start_idx = int(args.startidx)
     n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
     end_idx = start_idx + n_qdicts_to_infer
 
-    full_query_dicts_path = f"gs://{bucket}/{gs_orig_qd_path}"
     all_query_dicts = pickle.load( open( full_query_dicts_path, "rb" ) )
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
