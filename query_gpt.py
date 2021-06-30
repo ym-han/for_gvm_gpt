@@ -24,34 +24,34 @@ import numpy as np
 from jax.config import config
 
 try: 
-  import time
+    import time
 
-  import jax
-  from jax.experimental import maps
-  import numpy as np
-  import optax
-  import transformers
+    import jax
+    from jax.experimental import maps
+    import numpy as np
+    import optax
+    import transformers
 
-  from mesh_transformer.checkpoint import read_ckpt
-  from mesh_transformer.sampling import nucleaus_sample
-  from mesh_transformer.transformer_shard import CausalTransformer
+    from mesh_transformer.checkpoint import read_ckpt
+    from mesh_transformer.sampling import nucleaus_sample
+    from mesh_transformer.transformer_shard import CausalTransformer
 except: 
-  import time
+    import time
 
-  import jax
-  from jax.experimental import maps
-  import numpy as np
-  import optax
-  import transformers
+    import jax
+    from jax.experimental import maps
+    import numpy as np
+    import optax
+    import transformers
 
-  from mesh_transformer.checkpoint import read_ckpt
-  from mesh_transformer.sampling import nucleaus_sample
-  from mesh_transformer.transformer_shard import CausalTransformer
+    from mesh_transformer.checkpoint import read_ckpt
+    from mesh_transformer.sampling import nucleaus_sample
+    from mesh_transformer.transformer_shard import CausalTransformer
 
 
 @dataclass
 class QueryDictWrapper:
-    start_idx: int 
+    start_idx: int
     query_dicts: list
 
 
