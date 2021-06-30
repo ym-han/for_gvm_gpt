@@ -67,6 +67,40 @@ test_eq( toy_ret_qds_2,
           'response': 'no closing ]'}] )
 
 
-# main logic
+# ==== main logic
 # os.system("python query_gpt.py --config configs/test_config.json --startidx 0")
 # pickle.load( open("qdw_0.p", "rb"))
+
+# === for debugging
+# setup_params = json.load(open("configs/test_config.json"))
+# bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
+# qd_save_dir = setup_params["qd_save_dir"]
+
+# # Set up model and model query function
+# tokenizer, network, total_batch = setup_gpt(setup_params)
+# ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
+
+# # Load query dicts
+# dest_qd_path = pathlib.Path(orig_qd_path)
+# if not dest_qd_path.parent.is_dir(): dest_qd_path.parent.mkdir() 
+# download_blob(bucket, orig_qd_path,  orig_qd_path)
+
+# start_idx = int(args.startidx)
+# n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
+# end_idx = start_idx + n_qdicts_to_infer
+
+# all_query_dicts = pickle.load( open( dest_qd_path, "rb" ) )
+# qdicts_to_infer = all_query_dicts[start_idx: end_idx]
+
+# # Qeury GPT and get updated query dicts
+# infer_batch_sz = int(setup_params["per_replica_batch"])
+# ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
+
+
+# from timeit import default_timer as timer
+# start = timer()
+# ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
+# end=timer()
+# time_for_two_input_qds = end-start
+# time_per_input_qd = time_for_two_input_qds/2
+#6.45 seconds
