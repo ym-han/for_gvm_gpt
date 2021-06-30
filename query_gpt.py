@@ -175,7 +175,7 @@ def infer(setup_params=None, tokenizer=None, network=None, total_batch=8, contex
     return samples
 
 def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
-    logging.info(f"top_p is {top_p};temp is {temp}\n")
+    logging.debug(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
     tokens = tokenizer.encode(context)
@@ -217,7 +217,7 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
 
     ret_qdicts = []
 
-    for qd in query_dicts:
+    for qd in tqdm(query_dicts):
         gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
         batch_qds = make_k_copies(qd, batch_sz)
         lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
@@ -225,7 +225,6 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
         ret_qdicts.extend(lst_qds_with_responses)
   
     return ret_qdicts
-
 
 
 
@@ -260,8 +259,7 @@ if __name__ == "__main__":
     qdw = QueryDictWrapper(start_idx, ret_qdicts)
     logging.debug(qdw)
 
-    qdw_savefnm = f"qdw_{start_idx}.p"
+    qdw_savefnm = f"qdw_{start_idx}_to_{end_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
     upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
-
 
