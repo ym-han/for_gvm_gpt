@@ -18,9 +18,9 @@
   "model_dir": "slim_chkpt",
   "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
 
-  "orig_qd_path": "orig_querydicts/orig_qds_top160.p", 
-  "qd_save_dir": "res_qdicts_top160",
-  "n_qdicts_to_infer_per_tpu": 4,
+  "orig_qd_path": "orig_querydicts/orig_qds_top100.p", 
+  "qd_save_dir": "res_qdicts_top100",
+  "n_qdicts_to_infer_per_tpu": 550,
 
-  "name": "config_for_gpt_j_setup_top160"
+  "name": "config_for_gpt_j_setup_top100"
 }
