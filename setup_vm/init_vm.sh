@@ -15,10 +15,14 @@ if [ ! -d "slim_chkpt" ]; then
   mv step_383500 slim_chkpt
 fi
 
+cd $HOME
+
 if [ ! -d "env" ]; then
   sudo apt-get install python3-venv --yes
   python3 -m venv env
 fi
+
+cd $HOME
 
 source env/bin/activate
 
