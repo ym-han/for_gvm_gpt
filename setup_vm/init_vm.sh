@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-cd $HOME
-
 sudo apt-get update --yes
+sudo apt-get upgrade --yes
 
+sudo apt-get install screen
 sudo apt-get install gcc python3-dev python3-setuptools
 sudo pip3 uninstall crcmod
 sudo pip3 install --no-cache-dir -U crcmod
