@@ -12,6 +12,7 @@
   "per_replica_batch": 8,
   "gradient_accumulation_steps": 16,
 
+  
   "tpu_size": 256,
 
   "bucket": "coref_gpt",
