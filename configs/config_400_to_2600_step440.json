@@ -1,0 +1,26 @@
+{
+  "layers": 28,
+  "d_model": 4096,
+  "n_heads": 16,
+  "n_vocab": 50400,
+  "norm": "layernorm",
+  "pe": "rotary",
+  "pe_rotary_dims": 64,
+
+  "seq": 2048,
+  "cores_per_replica": 8,
+  "per_replica_batch": 8,
+  "gradient_accumulation_steps": 16,
+
+  "tpu_size": 256,
+
+  "bucket": "coref_gpt",
+  "model_dir": "slim_chkpt",
+  "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
+
+  "orig_qd_path": "orig_querydicts/orig_qds_400_to_2600.p", 
+  "qd_save_dir": "results_400_to_2600_step440",
+  "n_qdicts_to_infer_per_tpu": 440,
+
+  "name": "config_orig_qds_400_to_2600_step440"
+}
