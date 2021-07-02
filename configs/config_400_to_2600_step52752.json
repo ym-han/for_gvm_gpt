@@ -19,8 +19,8 @@
   "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
 
   "orig_qd_path": "orig_querydicts/orig_qds_400_to_2600.p", 
-  "qd_save_dir": "results_400_to_2600_step440",
-  "n_qdicts_to_infer_per_tpu": 440,
+  "qd_save_dir": "results_400_to_2600_step52752",
+  "n_qdicts_to_infer_per_tpu": 52752,
 
-  "name": "config_orig_qds_400_to_2600_step440"
+  "name": "config_orig_qds_400_to_2600_step52752"
 }
