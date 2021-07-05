@@ -8,7 +8,9 @@ sudo apt-get install gcc python3-dev python3-setuptools
 sudo pip3 uninstall crcmod
 sudo pip3 install --no-cache-dir -U crcmod
 
-if [ ! -d "slim_chkpt" ]; then
+cd $HOME
+
+if [ ! -d "/home/ymh/slim_chkpt" ]; then
   sudo apt install zstd --yes
   gsutil cp gs://coref_gpt/model_zstd/slim_chkpt.tar.zstd . 
   tar -I zstd -xf slim_chkpt.tar.zstd
