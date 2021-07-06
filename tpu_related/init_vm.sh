@@ -5,7 +5,7 @@ sudo apt-get upgrade --yes
 
 sudo apt-get install screen
 sudo apt-get install gcc python3-dev python3-setuptools
-sudo pip3 uninstall crcmod
+sudo pip3 uninstall crcmod --yes
 sudo pip3 install --no-cache-dir -U crcmod
 
 cd $HOME
@@ -19,7 +19,7 @@ fi
 
 cd $HOME
 
-if [ ! -d "env" ]; then
+if [ ! -d "/home/ymh/env/" ]; then
   sudo apt-get install python3-venv --yes
   python3 -m venv "/home/ymh/env/"
 fi
