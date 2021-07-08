@@ -1,14 +1,13 @@
 # Notes re process: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
-import logging
-logging.basicConfig(level=logging.INFO)
+from utils_for_query import logger, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify
 
-import pathlib
-import argparse
 import json
-import os
+import pathlib
 from functools import partial
+import argparse
+import os
 import itertools as itls
 from fastcore.all import *
 
@@ -49,55 +48,14 @@ except:
     from mesh_transformer.transformer_shard import CausalTransformer
 
 
+std_params = {"sampler": nucleaus_sample,
+              "optimizer": optax.scale(0), #from colab version
+              "seq": 2048}
+
 @dataclass
 class QueryDictWrapper:
     start_idx: int
     query_dicts: list
-
-
-# Util funcs
-def download_blob(bucket_name, source_blob_name, destination_file_name):
-    """Downloads a blob from the bucket."""
-    # bucket_name = "your-bucket-name"
-    # source_blob_name = "storage-object-name"
-    # destination_file_name = "local/path/to/file"
-
-    storage_client = storage.Client()
-
-    bucket = storage_client.bucket(bucket_name)
-
-    # Construct a client side representation of a blob.
-    # Note `Bucket.blob` differs from `Bucket.get_blob` as it doesn't retrieve
-    # any content from Google Cloud Storage. As we don't need additional data,
-    # using `Bucket.blob` is preferred here.
-    blob = bucket.blob(source_blob_name)
-    blob.download_to_filename(destination_file_name)
-
-    print(
-        "Blob {} downloaded to {}.".format(
-            source_blob_name, destination_file_name
-        )
-    )
-
-
-def upload_blob(bucket_name, source_file_name, destination_blob_name):
-    """Uploads a file to the bucket."""
-    # The path to your file to upload
-    # source_file_name = "local/path/to/file"
-    # The ID of your GCS object
-    # destination_blob_name = "storage-object-name"
-
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-
-    blob.upload_from_filename(source_file_name)
-
-    logging.info(
-        "File {} uploaded to {}.".format(
-            source_file_name, destination_blob_name
-        )
-    )
 
 
 def parse_args():
@@ -125,13 +83,15 @@ def rm_white_space(strg: str) -> str:
 
 
 # Non-util funcs
+
+
 def setup_gpt(setup_params):
     bucket, model_dir = setup_params["bucket"], setup_params["model_dir"]
     per_replica_batch = setup_params["per_replica_batch"]
     cores_per_replica = setup_params["cores_per_replica"]
 
-    setup_params["sampler"] = nucleaus_sample
-    setup_params["optimizer"] = optax.scale(0) #from colab version
+    # setup_params["sampler"] = nucleaus_sample
+    # setup_params["optimizer"] = optax.scale(0) #from colab version
 
     mesh_shape = (jax.device_count() // cores_per_replica, cores_per_replica)
     devices = np.array(jax.devices()).reshape(mesh_shape)
@@ -175,7 +135,7 @@ def infer(setup_params=None, tokenizer=None, network=None, total_batch=8, contex
     return samples
 
 def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
-    logging.debug(f"top_p is {top_p};temp is {temp}\n")
+    logger.debug(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
     tokens = tokenizer.encode(context)
@@ -211,21 +171,24 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
     # 1. For each qdict `qd`, make batch_sz number of replicates, and feed `qd` into GPT to get a list of batch_sz responses
     # 2. Augment the batch_sz replicates with the responses
     # 3. Return list of replicates
-    logging.debug(f"batch_sz is {batch_sz}")
+    logger.debug(f"batch_sz is {batch_sz}")
 
-    if len(query_dicts) == 0: logging.debug("`run_queries` got mt qd_dict list as input?!")
+    if len(query_dicts) == 0: 
+        raise Exception("`run_queries` got mt qd_dict list as input?!")
 
     ret_qdicts = []
 
-    for qd in tqdm(query_dicts):
-        gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
-        batch_qds = make_k_copies(qd, batch_sz)
-        lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
+    try:
+        for qd in tqdm(query_dicts):
+            gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
+            batch_qds = make_k_copies(qd, batch_sz)
+            lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
 
-        ret_qdicts.extend(lst_qds_with_responses)
-  
+            ret_qdicts.extend(lst_qds_with_responses)
+    except Exception as inst:
+        logger.exception("Fatal error while trying to process query_dicts")
+      
     return ret_qdicts
-
 
 
 if __name__ == "__main__":
@@ -234,7 +197,7 @@ if __name__ == "__main__":
     setup_params = json.load(open(args.config))
     bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
     qd_save_dir = setup_params["qd_save_dir"]
-    
+
     # Set up model and model query function
     tokenizer, network, total_batch = setup_gpt(setup_params)
     ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
@@ -257,7 +220,7 @@ if __name__ == "__main__":
 
     # Save updated query dicts
     qdw = QueryDictWrapper(start_idx, ret_qdicts)
-    logging.debug(qdw)
+    logger.debug(qdw)
 
     qdw_savefnm = f"qdw_{start_idx}_to_{end_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
