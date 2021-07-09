@@ -11,7 +11,7 @@ sudo pip3 install --no-cache-dir -U crcmod
 
 cd $HOME
 
-if [ ! -d "/home/ymh/slim_chkpt" ]; then
+if [ ! -d "$HOME/slim_chkpt" ]; then
   sudo apt install zstd --yes
   gsutil cp gs://coref_gpt/model_zstd/slim_chkpt.tar.zstd . 
   tar -I zstd -xf slim_chkpt.tar.zstd
@@ -20,18 +20,18 @@ fi
 
 cd $HOME
 
-if [ ! -d "/home/ymh/env/" ]; then
+if [ ! -d "$HOME/env/" ]; then
   sudo apt-get install python3-venv --yes
-  python3 -m venv "/home/ymh/env/"
+  python3 -m venv "$HOME/env/"
 fi
 
-cd $HOME
-
-source "/home/ymh/env/bin/activate"
+source "$HOME/env/bin/activate"
 
 pip3 install cloud-tpu-client
 pip3 install fastcore
 pip3 install tqdm
+pip3 install wandb
+pip3 install notifiers
 
 git clone https://github.com/kingoflolz/mesh-transformer-jax.git
 pip3 install -r mesh-transformer-jax/requirements.txt
