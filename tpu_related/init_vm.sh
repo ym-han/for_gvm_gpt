@@ -25,7 +25,7 @@ if [ ! -d "$HOME/env/" ]; then
   python3 -m venv "$HOME/env/"
 fi
 
-source "$HOME/env/bin/activate"
+. $HOME/env/bin/activate
 
 pip3 install cloud-tpu-client
 pip3 install fastcore
