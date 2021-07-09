@@ -60,7 +60,7 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
 def extract_nm_fr_resp(response:str = "") -> str:
     if "]" not in response: return "no closing ]"
 
-    end_idx = response.find("]")
+    end_idx = response.find("]tpu_related/")
     return response[: end_idx]
 
 def rm_white_space(strg: str) -> str:
@@ -78,7 +78,7 @@ from notifiers.logging import NotificationHandler
 ## for Telegram logging
 config_tg_path = pathlib.Path("configs/telegram.json")
 if not config_tg_path.is_file():  
-    download_blob(bucket, "misc/telegram.json", config_tg_path)
+    download_blob("coref_gpt", "misc/telegram.json", config_tg_path)
 tg_params = json.load(open(config_tg_path))
 
 c_hdlr = logging.StreamHandler()
@@ -99,4 +99,4 @@ logger = logging.getLogger("loggr")
 for hdlr in (c_hdlr, f_hdlr, tg_hdlr): logger.addHandler(hdlr)
 
 tg = get_notifier('telegram')
-def tg_notify(msg): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])
+def tg_notify(msg: str): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])
