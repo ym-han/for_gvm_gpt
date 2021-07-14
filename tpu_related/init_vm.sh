@@ -41,4 +41,6 @@ pip3 uninstall jaxlib --yes
 pip3 install jaxlib==0.1.67
 # will error otherwise
 
+pip3 install "ray[serve]"
+
 # pip install --upgrade fabric dataclasses requests 
