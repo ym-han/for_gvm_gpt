@@ -48,9 +48,17 @@ except:
     from mesh_transformer.transformer_shard import CausalTransformer
 
 
-std_params = {"sampler": nucleaus_sample,
+std_params = {"layers": 28,
+              "d_model": 4096,
+              "n_heads": 16,
+              "n_vocab": 50400,
+              "norm": "layernorm",
+              "pe": "rotary",
+              "pe_rotary_dims": 64,
+              "sampler": nucleaus_sample,
               "optimizer": optax.scale(0), #from colab version
-              "seq": 2048}
+              "seq": 2048,
+              "tpu_size": 8}
 
 @dataclass
 class QueryDictWrapper:
@@ -63,35 +71,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Location of config file for setting up gpt-j")
     parser.add_argument("--startidx", type=int, default=None, help="start idx of the list for this tpu")
-
+    parser.add_argument("--tpunm", type=int, default=None, help="name of tpu")
     args = parser.parse_args()
     return args
 
-""" Extracts the name from the output. 
-    This assumes that the name is enclosed in brackets """
-def extract_nm_fr_resp(response:str = "") -> str:
-    if "]" not in response: return "no closing ]"
-
-    end_idx = response.find("]")
-    return response[: end_idx]
-
-def rm_white_space(strg: str) -> str:
-    lines_without_trailing = strg.strip().split("\n")
-    no_whitespace = "\n".join( [ln.strip() for ln in lines_without_trailing] )
-
-    return no_whitespace
-
 
 # Non-util funcs
-
-
 def setup_gpt(setup_params):
     bucket, model_dir = setup_params["bucket"], setup_params["model_dir"]
     per_replica_batch = setup_params["per_replica_batch"]
     cores_per_replica = setup_params["cores_per_replica"]
-
-    # setup_params["sampler"] = nucleaus_sample
-    # setup_params["optimizer"] = optax.scale(0) #from colab version
 
     mesh_shape = (jax.device_count() // cores_per_replica, cores_per_replica)
     devices = np.array(jax.devices()).reshape(mesh_shape)
@@ -112,7 +101,9 @@ def setup_gpt(setup_params):
 
 
 """For interactive inference """
-def infer(setup_params=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
+def infer(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
+    seq = setup_params["seq"]
+
     tokens = tokenizer.encode(context)
 
     provided_ctx = len(tokens)
@@ -177,16 +168,14 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
         raise Exception("`run_queries` got mt qd_dict list as input?!")
 
     ret_qdicts = []
+    
+    for qd_idx, qd in enumerate(tqdm(query_dicts)):
+        logger.debug(f"Processing idx {qd_idx} of query dicts")
+        gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
+        batch_qds = make_k_copies(qd, batch_sz)
+        lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
 
-    try:
-        for qd in tqdm(query_dicts):
-            gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
-            batch_qds = make_k_copies(qd, batch_sz)
-            lst_qds_with_responses = batch_qds.map_zipwith(add_resp_to_qdict, gpt_outs)
-
-            ret_qdicts.extend(lst_qds_with_responses)
-    except Exception as inst:
-        logger.exception("Fatal error while trying to process query_dicts")
+        ret_qdicts.extend(lst_qds_with_responses)
       
     return ret_qdicts
 
@@ -194,7 +183,8 @@ def run_queries(batch_sz: int, ask_func, query_dicts : List[Dict]) -> List[Dict]
 if __name__ == "__main__":
     # Init params
     args = parse_args()
-    setup_params = json.load(open(args.config))
+    setup_params = std_params
+    setup_params.update(json.load(open(args.config)))
     bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
     qd_save_dir = setup_params["qd_save_dir"]
 
@@ -216,11 +206,18 @@ if __name__ == "__main__":
 
     # Qeury GPT and get updated query dicts
     infer_batch_sz = int(setup_params["per_replica_batch"])
-    ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
+
+    try:
+        ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
+    except Exception as inst:
+        logger.exception("Fatal error while trying to process query_dicts")
 
     # Save updated query dicts
+    ## TO DO: Save the data in json instead, and make sure to stream it / save it lazily, instead of keeping everything in memory and saving only at the end. Put the start_idx in the saved json instead of using QueryDictWrapper
     qdw = QueryDictWrapper(start_idx, ret_qdicts)
     logger.debug(qdw)
+
+    tg.notify(f"DONE - {args.tpunm}")
 
     qdw_savefnm = f"qdw_{start_idx}_to_{end_idx}.p"
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
