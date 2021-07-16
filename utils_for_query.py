@@ -77,6 +77,8 @@ from notifiers import get_notifier
 
 ## Logging config
 LOGS_DIR = Path("logs")
+ERROR_LOG_PATH =  Path(LOGS_DIR, "error.log")
+INFO_LOG_PATH =  Path(LOGS_DIR, "info.log")
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -95,7 +97,7 @@ logging_config = {
         },
         "info": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": Path(LOGS_DIR, "info.log"),
+            "filename": INFO_LOG_PATH,
             "maxBytes": 10485760,  # 1 MB
             "backupCount": 10,
             "formatter": "detailed",
@@ -103,7 +105,7 @@ logging_config = {
         },
         "error": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": Path(LOGS_DIR, "error.log"),
+            "filename": ERROR_LOG_PATH,
             "maxBytes": 10485760,  # 1 MB
             "backupCount": 10,
             "formatter": "detailed",
