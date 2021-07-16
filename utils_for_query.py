@@ -1,8 +1,8 @@
 # Notes re process: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
-import json
-import pathlib
+import ujson
+from pathlib import Path
 from functools import partial
 
 import pickle
@@ -73,30 +73,53 @@ def rm_white_space(strg: str) -> str:
 # Logging related
 import logging
 from notifiers import get_notifier
-from notifiers.logging import NotificationHandler
 
-## for Telegram logging
-config_tg_path = pathlib.Path("configs/telegram.json")
-if not config_tg_path.is_file():  
-    download_blob("coref_gpt", "misc/telegram.json", config_tg_path)
-tg_params = json.load(open(config_tg_path))
+## Logging config
+LOGS_DIR = "logs"
+logging_config = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "minimal": {"format": "%(message)s"},
+        "detailed": {
+            "format": "%(levelname)s %(asctime)s [%(filename)s:%(funcName)s:%(lineno)d]\n%(message)s\n"
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": sys.stdout,
+            "formatter": "minimal",
+            "level": logging.DEBUG,
+        },
+        "info": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": Path(LOGS_DIR, "info.log"),
+            "maxBytes": 10485760,  # 1 MB
+            "backupCount": 10,
+            "formatter": "detailed",
+            "level": logging.INFO,
+        },
+        "error": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": Path(LOGS_DIR, "error.log"),
+            "maxBytes": 10485760,  # 1 MB
+            "backupCount": 10,
+            "formatter": "detailed",
+            "level": logging.ERROR,
+        },
+    },
+    "loggers": {
+        "root": {
+            "handlers": ["console", "info", "error"],
+            "level": logging.INFO,
+            "propagate": True,
+        },
+    },
+}
 
-c_hdlr = logging.StreamHandler()
-f_hdlr = logging.FileHandler('debug.log')
-tg_hdlr = NotificationHandler('telegram', defaults=tg_params)
 
-c_hdlr.setLevel(logging.DEBUG)
-f_hdlr.setLevel(logging.WARNING)
-tg_hdlr.setLevel(logging.ERROR)
-
-c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-c_hdlr.setFormatter(c_format)
-tg_hdlr.setFormatter(c_format)
-f_hdlr.setFormatter(f_format)
-
-logger = logging.getLogger("loggr")
-for hdlr in (c_hdlr, f_hdlr, tg_hdlr): logger.addHandler(hdlr)
+## for non-logging Telegram notifications
 
 tg = get_notifier('telegram')
 def tg_notify(msg: str): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])

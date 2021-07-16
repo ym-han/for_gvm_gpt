@@ -1,9 +1,11 @@
 # Notes re process: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
-from utils_for_query import logger, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify
+from utils_for_query import logging_config, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify
 
-import json
+import logging
+from notifiers.logging import NotificationHandler
+import ujson
 import pathlib
 from functools import partial
 import argparse
@@ -18,6 +20,8 @@ from copy import deepcopy
 from tqdm import tqdm
 
 from google.cloud import storage
+from smart_open import open
+
 import numpy as np 
 
 from jax.config import config
@@ -48,6 +52,27 @@ except:
     from mesh_transformer.transformer_shard import CausalTransformer
 
 
+# LOGGING
+
+## Non-telegram:
+logging.config.dictConfig(logging_config)
+logger = logging.getLogger("root")
+logger.handlers[0] = RichHandler(markup=True)
+
+## For telegram-logging:
+config_tg_path = pathlib.Path("configs/telegram.json")
+if not config_tg_path.is_file():  
+    download_blob("coref_gpt", "misc/telegram.json", config_tg_path)
+tg_params = ujson.load(open(config_tg_path))
+
+tg_hdlr = NotificationHandler('telegram', defaults=tg_params)
+tg_hdlr.setLevel(logging.ERROR)
+c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+tg_hdlr.setFormatter(c_format)
+logger.addHandler(tg_hdlr)
+
+# 
+
 std_params = {"layers": 28,
               "d_model": 4096,
               "n_heads": 16,
@@ -57,13 +82,13 @@ std_params = {"layers": 28,
               "pe_rotary_dims": 64,
               "sampler": nucleaus_sample,
               "optimizer": optax.scale(0), #from colab version
-              "seq": 2048,
+              "seq": 256,
               "tpu_size": 8}
 
-@dataclass
-class QueryDictWrapper:
-    start_idx: int
-    query_dicts: list
+# @dataclass
+# class QueryDictWrapper:
+#     start_idx: int
+#     query_dicts: list
 
 
 def parse_args():
@@ -126,7 +151,7 @@ def infer(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, c
     return samples
 
 def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
-    logger.debug(f"top_p is {top_p};temp is {temp}\n")
+    print(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
     tokens = tokenizer.encode(context)
@@ -184,9 +209,14 @@ if __name__ == "__main__":
     # Init params
     args = parse_args()
     setup_params = std_params
-    setup_params.update(json.load(open(args.config)))
+    setup_params.update(ujson.load(open(args.config)))
     bucket, orig_qd_path = setup_params["bucket"], setup_params["orig_qd_path"]
     qd_save_dir = setup_params["qd_save_dir"]
+
+    # Check that batch_sz matches seq hyperparam/config
+    infer_batch_sz = int(setup_params["per_replica_batch"])
+    if infer_batch_sz == 8 and int(setup_params["seq"]) != 256:
+        raise Exception("seq needs to be equal to 2048/8 if per_replica_batch (the batch sz) == 8!") 
 
     # Set up model and model query function
     tokenizer, network, total_batch = setup_gpt(setup_params)
@@ -205,7 +235,6 @@ if __name__ == "__main__":
     qdicts_to_infer = all_query_dicts[start_idx: end_idx]
 
     # Qeury GPT and get updated query dicts
-    infer_batch_sz = int(setup_params["per_replica_batch"])
 
     try:
         ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
@@ -213,9 +242,13 @@ if __name__ == "__main__":
         logger.exception("Fatal error while trying to process query_dicts")
 
     # Save updated query dicts
-    ## TO DO: Save the data in json instead, and make sure to stream it / save it lazily, instead of keeping everything in memory and saving only at the end. Put the start_idx in the saved json instead of using QueryDictWrapper
-    qdw = QueryDictWrapper(start_idx, ret_qdicts)
-    logger.debug(qdw)
+    ## TO DO: Save the data in json instead, and make sure to stream it / save it lazily, instead of keeping everything in memory and saving only at the end.
+
+
+
+
+    # qdw = QueryDictWrapper(start_idx, ret_qdicts)
+    # logger.debug(qdw)
 
     tg.notify(f"DONE - {args.tpunm}")
 
@@ -223,3 +256,11 @@ if __name__ == "__main__":
     pickle.dump( qdw, open(qdw_savefnm, "wb") )
     upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
 
+
+# # stream from GCS
+# for line in open('gs://my_bucket/my_file.txt'):
+#     print(line)
+
+# # stream content *into* GCS (write mode):
+# with open('gs://my_bucket/my_file.txt', 'wb') as fout:
+#     fout.write(b'hello world')
