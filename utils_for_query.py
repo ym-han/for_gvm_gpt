@@ -72,10 +72,11 @@ def rm_white_space(strg: str) -> str:
 
 # Logging related
 import logging
+from rich.logging import RichHandler
 from notifiers import get_notifier
 
 ## Logging config
-LOGS_DIR = "logs"
+LOGS_DIR = Path("logs")
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
