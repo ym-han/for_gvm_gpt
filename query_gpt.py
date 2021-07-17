@@ -1,9 +1,10 @@
 # Notes re process: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
-from utils_for_query import logging_config, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify
+from utils_for_query import logging_config, IP_ADDR, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify
 
-import logging
+import logging.config
+from rich.logging import RichHandler
 from notifiers.logging import NotificationHandler
 import ujson
 import pathlib
@@ -53,6 +54,9 @@ except:
 
 
 # LOGGING
+class LogIPAdapter(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        return f'{msg} - {self.extra["ip_add"]}', kwargs
 
 ## Non-telegram:
 logging.config.dictConfig(logging_config)
@@ -67,9 +71,10 @@ tg_params = ujson.load(open(config_tg_path))
 
 tg_hdlr = NotificationHandler('telegram', defaults=tg_params)
 tg_hdlr.setLevel(logging.ERROR)
-c_format = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
-tg_hdlr.setFormatter(c_format)
+tg_hdlr.setFormatter( logging.Formatter('%(levelname)s - %(message)s - %(ip_add)s') )
 logger.addHandler(tg_hdlr)
+
+logger = logging.LoggerAdapter(logger, {'ip_add': IP_ADDR})
 
 # 
 

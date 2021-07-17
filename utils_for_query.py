@@ -1,5 +1,6 @@
 # Notes re process: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
+import os
 import sys
 import ujson
 from pathlib import Path
@@ -9,6 +10,7 @@ import pickle
 
 from google.cloud import storage
 
+IP_ADDR = os.environ["SSH_CONNECTION"].split()[2]
 
 # Util funcs
 def download_blob(bucket_name, source_blob_name, destination_file_name):
@@ -72,13 +74,15 @@ def rm_white_space(strg: str) -> str:
 
 # Logging related
 import logging
-from rich.logging import RichHandler
 from notifiers import get_notifier
 
 ## Logging config
 LOGS_DIR = Path("logs")
-ERROR_LOG_PATH =  Path(LOGS_DIR, "error.log")
-INFO_LOG_PATH =  Path(LOGS_DIR, "info.log")
+if not LOGS_DIR.is_dir(): LOGS_DIR.mkdir()
+
+ERROR_LOG_PATH = Path(LOGS_DIR, f"error_{IP_ADDR}.log")
+INFO_LOG_PATH = Path(LOGS_DIR, f"info_{IP_ADDR}.log")
+
 logging_config = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -121,8 +125,6 @@ logging_config = {
     },
 }
 
-
 ## for non-logging Telegram notifications
-
 tg = get_notifier('telegram')
 def tg_notify(msg: str): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])
