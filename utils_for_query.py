@@ -10,9 +10,15 @@ import pickle
 
 from google.cloud import storage
 
-IP_ADDR = os.environ["SSH_CONNECTION"].split()[2]
+# IP_ADDR = os.environ["SSH_CONNECTION"].split()[2]
 
 # Util funcs
+
+# https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks?page=1&tab=votes#tab-top
+def chunk(it, size):
+    it = iter(it)
+    return iter(lambda: tuple(islice(it, size)), ())
+
 def download_blob(bucket_name, source_blob_name, destination_file_name):
     """Downloads a blob from the bucket."""
     # bucket_name = "your-bucket-name"
@@ -77,53 +83,60 @@ import logging
 from notifiers import get_notifier
 
 ## Logging config
-LOGS_DIR = Path("logs")
-if not LOGS_DIR.is_dir(): LOGS_DIR.mkdir()
+logs_dir = Path("logs")
+if not logs_dir.is_dir(): logs_dir.mkdir()
 
-ERROR_LOG_PATH = Path(LOGS_DIR, f"error_{IP_ADDR}.log")
-INFO_LOG_PATH = Path(LOGS_DIR, f"info_{IP_ADDR}.log")
+error_log_path = Path(logs_dir, f"error_{tpu_name}.log")
+info_log_path = Path(logs_dir, f"info_{tpu_name}.log")
 
-logging_config = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "minimal": {"format": "%(message)s"},
-        "detailed": {
-            "format": "%(levelname)s %(asctime)s [%(filename)s:%(funcName)s:%(lineno)d]\n%(message)s\n"
+
+# TO DO: Use tpu_name instead!
+
+def init_log_config(tpu_name:str):
+
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "minimal": {"format": "%(message)s"},
+            "detailed": {
+                "format": "%(levelname)s %(asctime)s [%(filename)s:%(funcName)s:%(lineno)d]\n%(message)s\n"
+            },
         },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "stream": sys.stdout,
-            "formatter": "minimal",
-            "level": logging.DEBUG,
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "stream": sys.stdout,
+                "formatter": "minimal",
+                "level": logging.DEBUG,
+            },
+            "info": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": info_log_path,
+                "maxBytes": 10485760,  # 1 MB
+                "backupCount": 10,
+                "formatter": "detailed",
+                "level": logging.INFO,
+            },
+            "error": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": error_log_path,
+                "maxBytes": 10485760,  # 1 MB
+                "backupCount": 10,
+                "formatter": "detailed",
+                "level": logging.ERROR,
+            },
         },
-        "info": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": INFO_LOG_PATH,
-            "maxBytes": 10485760,  # 1 MB
-            "backupCount": 10,
-            "formatter": "detailed",
-            "level": logging.INFO,
+        "loggers": {
+            "root": {
+                "handlers": ["console", "info", "error"],
+                "level": logging.INFO,
+                "propagate": True,
+            },
         },
-        "error": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": ERROR_LOG_PATH,
-            "maxBytes": 10485760,  # 1 MB
-            "backupCount": 10,
-            "formatter": "detailed",
-            "level": logging.ERROR,
-        },
-    },
-    "loggers": {
-        "root": {
-            "handlers": ["console", "info", "error"],
-            "level": logging.INFO,
-            "propagate": True,
-        },
-    },
-}
+    }
+
+    return logging_config
 
 ## for non-logging Telegram notifications
 tg = get_notifier('telegram')
