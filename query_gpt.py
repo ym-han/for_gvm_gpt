@@ -270,7 +270,6 @@ if __name__ == "__main__":
                     notes = "scaling up inference with batches",
                     config = infer_config)
 
-    global bkt_nm 
     bkt_nm = setup_params["bucket"]
     input_qd_pkl_path, qd_save_dir = setup_params["input_qd_pkl"], setup_params["qd_save_dir"]
     
