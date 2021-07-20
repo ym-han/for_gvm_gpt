@@ -3,6 +3,7 @@
 
 from utils_for_query import init_log_config, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify, error_log_path, info_log_path
 
+from datetime import datetime
 import logging.config
 from rich.logging import RichHandler
 from notifiers.logging import NotificationHandler
@@ -15,17 +16,18 @@ from copy import copy
 from tqdm import tqdm
 from google.cloud import storage
 from smart_open import open
+import multiprocessing as mp
+from multiprocessing import get_context
 
 from functools import partial
 import itertools as itls
-from itertools import islice
-# from fastcore.all import *
-from functional import pseq 
+from fastcore.all import *
+# from functional import pseq 
 
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List
-# import pickle
+import dill as pickle
 
 import pytz
 import os
@@ -62,6 +64,7 @@ except:
     from mesh_transformer.transformer_shard import CausalTransformer
 
 # ===== Consts ===== #
+
 stop_received = False
 bkt_nm = "coref_gpt"
 bkt_pre = f"gs://{bkt_nm}/"
@@ -112,6 +115,7 @@ def parse_args():
     parser.add_argument("--config", type=str, default=None, help="Location of config file for setting up gpt-j")
     parser.add_argument("--startidx", type=int, default=None, help="start idx of the dicts to process for this tpu")
     parser.add_argument("--tpunm", type=int, default=None, help="name of tpu")
+  
     args = parser.parse_args()
     return args
 
@@ -191,8 +195,7 @@ def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8,
 
 # Shallow copies good enough b/c it's a dict of primitive types
 def make_copies(obj, k: int=8): 
-    return pseq(range(k)).map( lambda: copy(obj) )
-    # [ copy(obj) for _ in range(k) ]
+    return [ copy(obj) for _ in range(k) ]
     # TO DO: Test that the copies are indep of each other!
 
 
@@ -201,11 +204,11 @@ def add_resp_to_qdict(qdict, response_str:str):
     return qdict
   
 
-def save_bidx_qd_origidx(orig_qd_idx: int, batch_idx:int, ret_qd):
+def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
     qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
 
     with open(bkt_pre+qd_savefnm, 'w') as f_out:
-        ujson.dump(ret_qd, f_out, ident=2)
+        ujson.dump(ret_qd, f_out)
 
 """ Feed exactly one q_dict into GPT, get `batch_sz` responses back, augment, return """
 def run_queries(batch_sz: int, ask_func, qd: Dict) -> Iterable[Dict]:  
@@ -221,12 +224,13 @@ def run_queries(batch_sz: int, ask_func, qd: Dict) -> Iterable[Dict]:
     gpt_outs = ask_func(context=qd["prompt"], top_p=qd["top_p"], temp=qd["temp"])
     
     batch_qds = make_copies(qd, batch_sz)
-    ret_qdicts = ( pseq(batch_qds)
-                        .zip( pseq(gpt_outs) )
-                        .smap(add_resp_to_qdict) )
+    ret_qdicts = L(batch_qds).map_zipwith(add_resp_to_qdict, gpt_outs)
+
+    # ret_qdicts = ( pseq(batch_qds)
+    #                     .zip( pseq(gpt_outs) )
+    #                     .smap(add_resp_to_qdict) )
 
     return ret_qdicts 
-    # this should be a functional.pipeline.Sequence
 
 
 if __name__ == "__main__":
@@ -260,19 +264,19 @@ if __name__ == "__main__":
     infer_config = ujson.load(open(args.config))
     setup_params.update(infer_config)
 
-    wandb.init(project = "coref_gpt",
-               group = "gptj_infer_Jul19_2021",
-               job_type = "gptj_inference",
-               notes = "scaling up inference with batches",
-               config = infer_config)
+    run = wandb.init(project = "coref_gpt",
+                    group = setup_params["group_id"],
+                    job_type = "gptj_inference",
+                    notes = "scaling up inference with batches",
+                    config = infer_config)
 
     global bkt_nm 
     bkt_nm = setup_params["bucket"]
-    orig_qd_dir, qd_save_dir = setup_params["orig_qd_dir"], setup_params["qd_save_dir"]
+    input_qd_pkl_path, qd_save_dir = setup_params["input_qd_pkl"], setup_params["qd_save_dir"]
     
     start_idx = int(args.startidx)
     n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
-    end_idx = start_idx + n_qdicts_to_infer
+    end_slice_idx = start_idx + n_qdicts_to_infer
 
     # Make seq hyperparam/config match batch_sz  
     infer_batch_sz = int(setup_params["per_replica_batch"])
@@ -284,28 +288,33 @@ if __name__ == "__main__":
     tokenizer, network, total_batch = setup_gpt(setup_params)
     ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
 
-    # Load query dicts, run queries, save
-    for qd_idx in range(start_idx, start_idx + n_qdicts_to_infer + 1):
+    # Load query dicts
+    input_qds = pickle.load( open( input_qd_pkl_path, "rb" ) )
+    qds_to_infer = input_qds[start_idx:end_slice_idx]
+    
+    ## Log on wandb that I'm using pkl from before
+    input_qdict_pkl = wandb.Artifact("akanv_in_qd_pkl_50k_ents", type="input_qdict_pkl", description="for 50k entities")
+    input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanv_in_qd_pkl_50k_ents')
+    run.use_artifact(input_qdict_pkl)
+
+
+    # Run queries, save as we go
+    for qd_idx, qd in enumerate(tqdm(qds_to_infer)):
+        logger.debug(f"Processing idx {qd_idx} of query dicts")
+        
         if stop_received: gracefully_exit(start_time_date, args.tpunm)
         
-        orig_qd_fnm = f"{orig_qd_dir}/{qd_idx}.json"
-        save_bidx_qd = partial(save_bidx_qd_origidx, qd_idx)
+        save_bidx_qd = partial(save_bidx_qd_origidx, qd_save_dir, qd_idx)
 
-        with open(bkt_pre+orig_qd_fnm) as f_in:
-            logger.debug(f"Processing idx {qd_idx} of query dicts")
-            orig_qd = ujson.load(f_in)
+        try:
+            ret_dicts = run_queries(infer_batch_sz, ask, orig_qd)
+        except Exception as inst:
+            logger.exception(f"Fatal error while trying to query GPT with qd_idx {qd_idx}")
 
-            try:
-                ret_dicts = run_queries(infer_batch_sz, ask, orig_qd)
-            except Exception as inst:
-                logger.exception(f"Fatal error while trying to query GPT with {orig_qd_fnm}")
+        with get_context("spawn").Pool() as pool:
+            pool.starmap(save_bidx_qd, enum(ret_dicts))
+            # TO DO: Look into using async starmap instead
 
-            pseq( ret_dicts.enumerate() ).smap(save_bidx_qd) 
-
-            # TO DO: Check if starmap is alrdy parallelized out of box with pseq
-
-            # json_str = ujson.dumps(ret_qd)
-            # fout.write(json_str)
 
     logger.info("Done\n")
     tg.notify(f"DONE - {args.tpunm}")
@@ -318,6 +327,10 @@ if __name__ == "__main__":
 
 
 
+    # pseq( ret_dicts.enumerate() ).smap(save_bidx_qd)     
+
+    # json_str = ujson.dumps(ret_qd)
+    # fout.write(json_str)
 
 
 
@@ -329,7 +342,7 @@ if __name__ == "__main__":
     # download_blob(bucket, orig_qd_dir,  orig_qd_dir)
 
     # all_query_dicts = pickle.load( open( dest_qd_path, "rb" ) )
-    # qdicts_to_infer = all_query_dicts[start_idx: end_idx]
+    # qdicts_to_infer = all_query_dicts[start_idx: end_slice_idx]
 
     # # Query GPT and get updated query dicts
 
@@ -345,7 +358,7 @@ if __name__ == "__main__":
     # qdw = QueryDictWrapper(start_idx, ret_qdicts)
     # logger.debug(qdw)
 
-    # qdw_savefnm = f"qdw_{start_idx}_to_{end_idx}.p"
+    # qdw_savefnm = f"qdw_{start_idx}_to_{end_slice_idx}.p"
     # pickle.dump( qdw, open(qdw_savefnm, "wb") )
     # upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
 
