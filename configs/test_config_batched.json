@@ -12,6 +12,6 @@
   "qd_save_dir": "test_querydicts/json_savedir",
   "n_qdicts_to_infer_per_tpu": 3,
 
-  "group_id": "gptj_infer_Jul19_2021",
+  "group_id": "TEST_Jul19_2021",
   "name": "TEST_config_for_gpt_j_setup"
 }
