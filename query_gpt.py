@@ -114,7 +114,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=None, help="Location of config file for setting up gpt-j")
     parser.add_argument("--startidx", type=int, default=None, help="start idx of the dicts to process for this tpu")
-    parser.add_argument("--tpunm", type=int, default=None, help="name of tpu")
+    parser.add_argument("--tpunm", type=str, default=None, help="name of tpu")
   
     args = parser.parse_args()
     return args
