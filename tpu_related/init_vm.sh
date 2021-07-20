@@ -3,6 +3,8 @@ set -e
 
 sudo apt-get update --yes
 sudo apt-get upgrade --yes
+sudo apt install git-all --yes
+
 
 sudo apt-get install screen
 sudo apt-get install gcc python3-dev python3-setuptools
@@ -20,18 +22,29 @@ fi
 
 cd $HOME
 
+
 if [ ! -d "$HOME/env/" ]; then
   sudo apt-get install python3-venv --yes
-  python3 -m venv "$HOME/env/"
+  python3.8 -m venv "$HOME/env/"
 fi
 
 . $HOME/env/bin/activate
+
+pip3 install --upgrade setuptools
 
 pip3 install cloud-tpu-client
 pip3 install fastcore
 pip3 install tqdm
 pip3 install wandb
 pip3 install notifiers
+
+pip3 install smart_open[gcs]
+pip3 install rich
+pip3 install ujson
+pip3 install dill
+
+pip3 install "ray[default]"
+pip3 install "ray[serve]"
 
 git clone https://github.com/kingoflolz/mesh-transformer-jax.git
 pip3 install -r mesh-transformer-jax/requirements.txt
@@ -40,7 +53,5 @@ pip3 install mesh-transformer-jax/ jax==0.2.12
 pip3 uninstall jaxlib --yes
 pip3 install jaxlib==0.1.67
 # will error otherwise
-
-pip3 install "ray[serve]"
 
 # pip install --upgrade fabric dataclasses requests 
