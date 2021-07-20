@@ -92,13 +92,10 @@ from notifiers import get_notifier
 logs_dir = Path("logs")
 if not logs_dir.is_dir(): logs_dir.mkdir()
 
-
-# TO DO: Use tpu_name instead!
+error_log_path = Path(logs_dir, f"error.log")
+info_log_path = Path(logs_dir, f"info.log")
 
 def init_log_config(tpu_name:str):
-
-    error_log_path = Path(logs_dir, f"error_{tpu_name}.log")
-    info_log_path = Path(logs_dir, f"info_{tpu_name}.log")
 
 
     logging_config = {

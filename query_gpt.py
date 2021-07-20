@@ -91,8 +91,8 @@ def stopped(signum, frame):
 
 
 def upload_logs_to_bucket(start_time_date:str, tpu_nm:str):
-    upload_blob(bkt_nm, str(error_log_path), f"logs_started_/{tpu_nm}/error.log")
-    upload_blob(bkt_nm, str(info_log_path), f"logs_started_/{tpu_nm}/info.log")
+    upload_blob(bkt_nm, str(error_log_path), f"logs_started_{start_time_date}/{tpu_nm}/error.log")
+    upload_blob(bkt_nm, str(info_log_path), f"logs_started_{start_time_date}/{tpu_nm}/info.log")
    
 
 def gracefully_exit(start_time_date:str, tpu_nm:str):
