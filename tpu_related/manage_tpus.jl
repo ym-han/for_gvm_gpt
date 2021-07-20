@@ -1,6 +1,7 @@
 # Cleaner version of code for running embarrasingly parallel jobs on TPUs
 # TO DO: Add setup code (tho not sure if doing this is worth it)
-
+# https://stackoverflow.com/questions/670191/getting-a-source-not-found-error-when-using-source-in-a-bash-script
+  
 # This assumes 0-based idxing for tpu names
 
 using Test
@@ -9,6 +10,11 @@ const zone_central = "us-central1-f"
 const zone_europe = "europe-west4-a"
 
 # Util functions
+function calc_time(; n_v2_tpus, n_v3_tpus, n_ents, )
+
+end
+
+
 function calc_time(n_tpus, n_input_qds)
   startup_time = 5 * 60
   time_per_input_qd = 6.45 #seconds
