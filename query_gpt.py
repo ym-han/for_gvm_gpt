@@ -24,7 +24,6 @@ import itertools as itls
 from fastcore.all import *
 # from functional import pseq 
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List
 import dill as pickle
@@ -211,7 +210,7 @@ def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
         ujson.dump(ret_qd, f_out)
 
 """ Feed exactly one q_dict into GPT, get `batch_sz` responses back, augment, return """
-def run_queries(batch_sz: int, ask_func, qd: Dict) -> Iterable[Dict]:  
+def run_queries(batch_sz: int, ask_func, qd: Dict):  
     logger.debug(f"batch_sz is {batch_sz}")
 
     # 1. Replicate query dict `batch_sz` times, and feed `qd` into GPT to get a list of batch_sz responses
@@ -289,7 +288,7 @@ if __name__ == "__main__":
 
     # Load query dicts
     input_qds = pickle.load( open( input_qd_pkl_path, "rb" ) )
-    qds_to_infer = input_qds[start_idx:end_slice_idx]
+    qds_to_infer = (qd for qd in input_qds[start_idx:end_slice_idx])
     
     ## Log on wandb that I'm using pkl from before
     input_qdict_pkl = wandb.Artifact("akanv_in_qd_pkl_50k_ents", type="input_qdict_pkl", description="for 50k entities")
