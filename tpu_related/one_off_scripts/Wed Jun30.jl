@@ -42,9 +42,9 @@ make_str(lst) = join(lst, "; ")
 
 # 1. Set up the TPUs appropriately
 vm_setup_instructs = ["git clone https://github.com/ym-han/for_gvm_gpt.git",
-                     "cd for_gvm_gpt/setup_vm/",
+                     "cd for_gvm_gpt/tpu_related/",
                      "chmod +x init_vm.sh",
-                     "sh init_vm.sh"]
+                     "./init_vm.sh"]
 setup_instr_str = join(vm_setup_instructs, "; ")  
 
 
