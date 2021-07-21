@@ -38,6 +38,7 @@ pip3 install tqdm
 pip3 install wandb
 pip3 install notifiers
 
+pip3 install pytz
 pip3 install smart_open[gcs]
 pip3 install rich
 pip3 install ujson
@@ -46,7 +47,7 @@ pip3 install dill
 pip3 install "ray[default]"
 pip3 install "ray[serve]"
 
-git clone https://github.com/kingoflolz/mesh-transformer-jax.git
+git clone https://github.com/ym-han/mesh-transformer-jax.git
 pip3 install -r mesh-transformer-jax/requirements.txt
 pip3 install mesh-transformer-jax/ jax==0.2.12
 
