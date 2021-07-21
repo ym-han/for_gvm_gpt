@@ -10,7 +10,7 @@
 
   "input_qd_pkl": "orig_querydicts/pkl_gptj_infer_Jul19_2021/in_qd_ent_0_to_50k.p", 
   "qd_save_dir": "results/akanv_4entlst",
-  "n_qdicts_to_infer_per_tpu": 105000,
+  "n_qdicts_to_infer_per_tpu": 150000,
 
   "group_id": "gptj_infer_Jul19_2021"
 }
