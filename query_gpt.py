@@ -1,13 +1,13 @@
-# Notes re process: jaxlib needs to be 0.1.67.
+# Note re dependencies: jaxlib needs to be 0.1.67.
 # when using a different version of jaxlib, error when running CausalTransformer: RuntimeError: Invalid argument: Argument does not match host shape or layout of computation parameter 0: want s32[]{:T(256)}, got s32[]
 
-from utils_for_query import init_log_config, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, tg_notify, error_log_path, info_log_path
+from utils_for_query import init_log_config, extract_nm_fr_resp, rm_white_space, download_blob, upload_blob, error_log_path, info_log_path
 
 from datetime import datetime
 import logging.config
 from rich.logging import RichHandler
 from notifiers.logging import NotificationHandler
-import wandb
+from notifiers import get_notifier
 
 import ujson
 from pathlib import Path
@@ -16,8 +16,9 @@ from copy import copy
 from tqdm import tqdm
 from google.cloud import storage
 from smart_open import open
-import multiprocessing as mp
-from multiprocessing import get_context
+# import multiprocessing as mp
+# from multiprocessing import get_context
+# import parmap
 
 from functools import partial
 import itertools as itls
@@ -62,11 +63,23 @@ except:
     from mesh_transformer.sampling import nucleaus_sample
     from mesh_transformer.transformer_shard import CausalTransformer
 
-# ===== Consts ===== #
+# ===== Logging, bucket related ===== #
 
-stop_received = False
 bkt_nm = "coref_gpt"
 bkt_pre = f"gs://{bkt_nm}/"
+bkt_config = bkt_pre+"configs"
+
+with open(bkt_config+"/wandb_key") as f:
+    os.environ["WANDB_API_KEY"] = f.read()
+import wandb
+
+tg_params = ujson.load( open(bkt_config+"/telegram.json") )
+tg = get_notifier('telegram')
+def tg_notify(msg: str): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])
+
+# ===== Consts ====================== #
+
+stop_received = False
 
 std_params = {"layers": 28,
               "d_model": 4096,
@@ -82,6 +95,12 @@ std_params = {"layers": 28,
 
 #==== Functions =====#
 
+def enum(lst): return L(L.range(lst), lst).zip()
+# test_eq(
+#     enum(["a", "b"]), 
+#     L( [ (0, 'a'), (1, 'b') ] ) 
+#     )
+
 def stopped(signum, frame):
     global stop_received
     stop_received = True
@@ -90,14 +109,14 @@ def stopped(signum, frame):
 
 
 def upload_logs_to_bucket(start_time_date:str, tpu_nm:str):
-    upload_blob(bkt_nm, str(error_log_path), f"logs_started_{start_time_date}/{tpu_nm}/error.log")
-    upload_blob(bkt_nm, str(info_log_path), f"logs_started_{start_time_date}/{tpu_nm}/info.log")
+    upload_blob(bkt_nm, str(error_log_path), f"logs/logs_started_{start_time_date}/{tpu_nm}/error.log")
+    upload_blob(bkt_nm, str(info_log_path), f"logs/logs_started_{start_time_date}/{tpu_nm}/info.log")
    
 
 def gracefully_exit(start_time_date:str, tpu_nm:str):
     logging.info("Gracefully exited")
     upload_logs_to_bucket(start_time_date, tpu_nm)
-    tg.notify("exitted - {tpu_nm}")
+    tg_notify("exitted - {tpu_nm}")
 
     sys.exit(0)
 
@@ -170,7 +189,7 @@ def infer(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, c
 
 """ If total_batch == 8, then this returns a list of 8 responses """
 def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
-    print(f"top_p is {top_p};temp is {temp}\n")
+    logger.debug(f"top_p is {top_p};temp is {temp}\n")
     seq = setup_params["seq"]
 
     tokens = tokenizer.encode(context)
@@ -203,12 +222,6 @@ def add_resp_to_qdict(qdict, response_str:str):
     return qdict
   
 
-def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
-    qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
-
-    with open(bkt_pre+qd_savefnm, 'w') as f_out:
-        ujson.dump(ret_qd, f_out)
-
 """ Feed exactly one q_dict into GPT, get `batch_sz` responses back, augment, return """
 def run_queries(batch_sz: int, ask_func, qd: Dict):  
     logger.debug(f"batch_sz is {batch_sz}")
@@ -232,6 +245,13 @@ def run_queries(batch_sz: int, ask_func, qd: Dict):
     return ret_qdicts 
 
 
+def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
+    qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
+
+    with open(bkt_pre+qd_savefnm, 'w') as f_out:
+        ujson.dump(ret_qd, f_out)
+
+
 if __name__ == "__main__":
     tz = pytz.timezone('US/Eastern')
     start_time_date = datetime.now(tz).strftime("%d.%m.%y/%H.%M")
@@ -242,15 +262,21 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, stopped)
     signal.signal(signal.SIGTERM, stopped)
 
+    # Set up params
+    setup_params = std_params
+    infer_config = ujson.load(open(args.config))
+    setup_params.update(infer_config)
+
+    # bkt_nm = setup_params["bucket"]
+    input_qd_pkl_path, qd_save_dir = bkt_pre+setup_params["input_qd_pkl"], setup_params["qd_save_dir"]
+
+    # Logging
     ## Non-telegram logging:
     logging.config.dictConfig(init_log_config(args.tpunm))
     logger = logging.getLogger("root")
     logger.handlers[0] = RichHandler(markup=True)
 
     ## Telegram logging:
-    config_tg_path = "configs/telegram.json"
-    tg_params = ujson.load( open(bkt_pre+config_tg_path) )
-
     tg_hdlr = NotificationHandler('telegram', defaults=tg_params)
     tg_hdlr.setLevel(logging.ERROR)
     tg_hdlr.setFormatter( logging.Formatter('%(levelname)s - %(message)s - %(tpu_name)s') )
@@ -258,19 +284,20 @@ if __name__ == "__main__":
 
     logger = logging.LoggerAdapter(logger, {'tpu_name': str(args.tpunm)})
 
-    # Set up params
-    setup_params = std_params
-    infer_config = ujson.load(open(args.config))
-    setup_params.update(infer_config)
-
+    # Wandb
     run = wandb.init(project = "coref_gpt",
-                    group = setup_params["group_id"],
-                    job_type = "gptj_inference",
-                    notes = "scaling up inference with batches",
-                    config = infer_config)
-
-    bkt_nm = setup_params["bucket"]
-    input_qd_pkl_path, qd_save_dir = setup_params["input_qd_pkl"], setup_params["qd_save_dir"]
+                     group = setup_params["group_id"],
+                     job_type = "gptj_inference",
+                     notes = "scaling up inference with batches",
+                     config = {**infer_config, 
+                              "start_idx": args.startidx, 
+                              "tpu_name": args.tpunm,
+                              "config_file": args.config,
+                              "n_qdicts_to_infer": setup_params["n_qdicts_to_infer_per_tpu"],
+                              "input_qd_pkl": setup_params["input_qd_pkl"],
+                              "qd_save_dir": setup_params["qd_save_dir"],
+                              "tpu_size": setup_params["tpu_size"],
+                              })
     
     start_idx = int(args.startidx)
     n_qdicts_to_infer = int(setup_params["n_qdicts_to_infer_per_tpu"])
@@ -289,82 +316,66 @@ if __name__ == "__main__":
     # Load query dicts
     input_qds = pickle.load( open( input_qd_pkl_path, "rb" ) )
     qds_to_infer = (qd for qd in input_qds[start_idx:end_slice_idx])
-    
+
     ## Log on wandb that I'm using pkl from before
-    input_qdict_pkl = wandb.Artifact("akanv_in_qd_pkl_50k_ents", type="input_qdict_pkl", description="for 50k entities")
-    input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanv_in_qd_pkl_50k_ents')
+    input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_50k_ents", type="input_qdict_pkl", description="shorter akanv templates; 50k entities")
+    input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_50k_ents')
     run.use_artifact(input_qdict_pkl)
 
 
-    # Run queries, save as we go
-    for qd_idx, qd in enumerate(tqdm(qds_to_infer)):
+    # Run queries, save at regular chkpts (b/c tpu can be shutdown for maintenance etc)
+    qds_skipped = []
+    num_saved_pkls = 0
+    qds_to_save = []
+
+    for qd_idx, orig_qd in enumerate(tqdm(qds_to_infer)):
         logger.debug(f"Processing idx {qd_idx} of query dicts")
         
+        # Chks
         if stop_received: gracefully_exit(start_time_date, args.tpunm)
-        
-        save_bidx_qd = partial(save_bidx_qd_origidx, qd_save_dir, qd_idx)
 
+        len_prompt = len( tokenizer.encode(orig_qd["prompt"]) )
+        if len_prompt > setup_params["seq"]:
+            logger.info("qd_idx {qd_idx},  entity {ent_nm} too long; length is {len_prompt} tokens")
+            qds_skipped.append(qd_idx)
+            continue
+        
+        # Query
         try:
             ret_dicts = run_queries(infer_batch_sz, ask, orig_qd)
         except Exception as inst:
             logger.exception(f"Fatal error while trying to query GPT with qd_idx {qd_idx}")
 
-        with get_context("spawn").Pool() as pool:
-            pool.starmap(save_bidx_qd, enum(ret_dicts))
-            # TO DO: Look into using async starmap instead
+        qds_to_save.append( (qd_idx, list(ret_dicts)) )
+
+        # Save if it's big enough, or if it's the last qdict
+        max_qds_len = 25_000 # num here corr. to orig qd len
+        if ( len(qds_to_save) >= max_qds_len) or (qd_idx == end_slice_idx - 1):
+            path_suffix = f"{qd_save_dir}/pkl/from_orig_qd_{qds_to_save[0][0]}_to_{qds_to_save[-1][0]}.p"
+            qd_lst_savefnm = bkt_pre + path_suffix
+            num_saved_pkls += 1
+
+            start_tm = time.time()
+            pickle.dump( qds_to_save, open( qd_lst_savefnm, "wb" ) )
+            logger.info(f"pkl {path_suffix} saved in in {time.time() - start_tm}s")
+
+        # save_bidx_qd = partial(save_bidx_qd_origidx, qd_save_dir, qd_idx)
+
+        # with get_context("spawn").Pool() as pool:
+        #     pool.starmap(save_bidx_qd, enum(ret_dicts))
+        # parmap.starmap(save_bidx_qd, enum(ret_dicts))
+        # L.range(ret_dicts).map_zipwith(save_bidx_qd, ret_dicts)
+
+        # W/o parallelizing or any other fancy tricks, it's 1.2s
+        # Another idea: use the gcloud client and upload it only when it gets big enough. 
+        # Or use pkl but save at regular chkpts
+        # Prob doesn't make sense to save at every step since (i) outputting the json will be slow and (ii) even 1.2s / 8 is not insignificant. So do regular chkpting instead.
+        # OR just try streaming it into one huge file, but stopping when we get the kill signal?
 
 
     logger.info("Done\n")
-    tg.notify(f"DONE - {args.tpunm}")
-
-
-
-
-
-
-
-
-
-    # pseq( ret_dicts.enumerate() ).smap(save_bidx_qd)     
-
-    # json_str = ujson.dumps(ret_qd)
-    # fout.write(json_str)
-
-
-
-
-
-
-    # dest_qd_path = Path(orig_qd_dir)
-    # if not dest_qd_path.parent.is_dir(): dest_qd_path.parent.mkdir() 
-    # download_blob(bucket, orig_qd_dir,  orig_qd_dir)
-
-    # all_query_dicts = pickle.load( open( dest_qd_path, "rb" ) )
-    # qdicts_to_infer = all_query_dicts[start_idx: end_slice_idx]
-
-    # # Query GPT and get updated query dicts
-
-    # try:
-    #     ret_qdicts = run_queries(infer_batch_sz, ask, qdicts_to_infer)
-    # except Exception as inst:
-    #     logger.exception("Fatal error while trying to process query_dicts")
-
-    # Save updated query dicts
-
-
-
-    # qdw = QueryDictWrapper(start_idx, ret_qdicts)
-    # logger.debug(qdw)
-
-    # qdw_savefnm = f"qdw_{start_idx}_to_{end_slice_idx}.p"
-    # pickle.dump( qdw, open(qdw_savefnm, "wb") )
-    # upload_blob(bucket, qdw_savefnm, f"{qd_save_dir}/"+qdw_savefnm)
-
-
-# # stream from GCS
-# for line in open('gs://my_bucket/my_file.txt'):
-#     print(line)
-
-# # stream content *into* GCS (write mode):
-# with open('gs://my_bucket/my_file.txt', 'wb') as fout:
-#     fout.write(b'hello world')
+    if len(qds_skipped) > 0:
+        tg_notify(f"DONE - {args.tpunm} - skipped {', '.join(qds_skipped)}; saved {num_saved_pkls} pkls")
+    else:
+        tg_notify(f"DONE - {args.tpunm} - saved {num_saved_pkls} pkls")
+    upload_logs_to_bucket(start_time_date, args.tpunm)
