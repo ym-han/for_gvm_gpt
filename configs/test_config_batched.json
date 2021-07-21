@@ -9,9 +9,8 @@
   "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
 
   "input_qd_pkl": "orig_querydicts/pkl_gptj_infer_Jul19_2021/in_qd_ent_0_to_50k.p", 
-  "qd_save_dir": "test_querydicts/json_savedir",
+  "qd_save_dir": "test_querydicts/",
   "n_qdicts_to_infer_per_tpu": 3,
 
-  "group_id": "TEST_Jul19_2021",
-  "name": "TEST_config_for_gpt_j_setup"
+  "group_id": "TEST_Jul19_2021"
 }
