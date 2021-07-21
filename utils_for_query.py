@@ -14,11 +14,7 @@ from google.cloud import storage
 # IP_ADDR = os.environ["SSH_CONNECTION"].split()[2]
 
 # Util funcs
-def enum(lst): return L(L.range(lst), lst).zip()
-test_eq(
-    enum(["a", "b"]), 
-    L( [ (0, 'a'), (1, 'b') ] ) 
-    )
+
 
 # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks?page=1&tab=votes#tab-top
 def chunk(it, size):
@@ -86,7 +82,6 @@ def rm_white_space(strg: str) -> str:
 
 # Logging related
 import logging
-from notifiers import get_notifier
 
 ## Logging config
 logs_dir = Path("logs")
@@ -142,6 +137,3 @@ def init_log_config(tpu_name:str):
 
     return logging_config
 
-## for non-logging Telegram notifications
-tg = get_notifier('telegram')
-def tg_notify(msg: str): tg.notify(message=msg, token=tg_params["token"], chat_id=tg_params["chat_id"])
