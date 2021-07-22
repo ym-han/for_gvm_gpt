@@ -133,16 +133,24 @@ def parse_args():
     parser.add_argument("--config", type=str, default=None, help="Location of config file for setting up gpt-j")
     parser.add_argument("--startidx", type=int, default=None, help="start idx of the dicts to process for this tpu")
     parser.add_argument("--tpunm", type=str, default=None, help="name of tpu")
+    parser.add_argument("--mock_setup", type=bool, default=False, help="whether to load network class or not")
   
     args = parser.parse_args()
     return args
 
+def ask_func_for_testing(*args, **kwargs):
+    return [str(i) for i in range(8)]
 
 # Non-util funcs
-def setup_gpt(setup_params):
+def setup_gpt(setup_params, mock_setup=False):
     model_dir = setup_params["model_dir"]
     per_replica_batch = setup_params["per_replica_batch"]
     cores_per_replica = setup_params["cores_per_replica"]
+
+    if mock_setup:
+        tokenizer = transformers.GPT2TokenizerFast.from_pretrained('gpt2')
+        total_batch = per_replica_batch * jax.device_count() // cores_per_replica
+        return tokenizer, None, total_batch
 
     mesh_shape = (jax.device_count() // cores_per_replica, cores_per_replica)
     devices = np.array(jax.devices()).reshape(mesh_shape)
@@ -245,6 +253,7 @@ def run_queries(batch_sz: int, ask_func, qd: Dict):
     return ret_qdicts 
 
 
+
 # def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
 #     qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
 
@@ -255,6 +264,7 @@ def run_queries(batch_sz: int, ask_func, qd: Dict):
 if __name__ == "__main__":
     tz = pytz.timezone('US/Eastern')
     start_time_date = datetime.now(tz).strftime("%d.%m.%y/%H.%M")
+    short_starttd = datetime.now(tz).strftime("%d.%m/%H.%M")
 
     # Init params
     args = parse_args()
@@ -289,6 +299,7 @@ if __name__ == "__main__":
                      group = setup_params["group_id"],
                      job_type = "gptj_inference",
                      notes = "scaling up inference with batches",
+                     name = f"{short_starttd}_{str(args.tpunm)}",
                      config = {**infer_config, 
                               "start_idx": args.startidx, 
                               "tpu_name": args.tpunm,
@@ -310,12 +321,16 @@ if __name__ == "__main__":
     setup_params["seq"] = 2048 // infer_batch_sz
 
     # Set up model and model query function
-    tokenizer, network, total_batch = setup_gpt(setup_params)
-    ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
+    if args.mock_setup:
+        tokenizer, network, total_batch = setup_gpt(setup_params, mock_setup=True)
+        ask = ask_func_for_testing
+    else:
+        tokenizer, network, total_batch = setup_gpt(setup_params)
+        ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
 
     # Load query dicts
     input_qds = pickle.load( open( input_qd_pkl_path, "rb" ) )
-    qds_to_infer = (qd for qd in input_qds[start_idx:end_slice_idx])
+    qds_to_infer = ( (orig_idx, qd) for orig_idx, qd in zip(range(start_idx, end_slice_idx), input_qds[start_idx:end_slice_idx]) )
 
     ## Log on wandb that I'm using pkl from before
     input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_50k_ents_from_edited_dump", type="input_qdict_pkl", description="for 50k entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
@@ -328,36 +343,36 @@ if __name__ == "__main__":
     num_saved_pkls = 0
     qds_to_save = []
 
-    for qd_idx, orig_qd in enumerate(tqdm(qds_to_infer)):
-        logger.debug(f"Processing idx {qd_idx} of query dicts")
+    for orig_idx, orig_qd in tqdm(qds_to_infer):
+        logger.debug(f"Processing idx {orig_idx} of query dicts")
         
         # Chks
         if stop_received: gracefully_exit(start_time_date, args.tpunm)
 
         len_prompt = len( tokenizer.encode(orig_qd["prompt"]) )
         if len_prompt > setup_params["seq"]:
-            logger.info(f"qd_idx {qd_idx}, entity {orig_qd['ent_nm']} too long; token length is {len_prompt} tokens")
-            qds_skipped.append(qd_idx)
+            logger.info(f"qd_idx {orig_idx}, entity {orig_qd['ent_nm']} too long; token length is {len_prompt} tokens")
+            qds_skipped.append(orig_idx)
             continue
         
         # Query
         try:
             ret_dicts = run_queries(infer_batch_sz, ask, orig_qd)
         except Exception as inst:
-            logger.exception(f"Fatal error while trying to query GPT with qd_idx {qd_idx}")
+            logger.exception(f"Fatal error while trying to query GPT with qd_idx {orig_idx}")
 
-        qds_to_save.append( (qd_idx, list(ret_dicts)) )
+        qds_to_save.append( (orig_idx, list(ret_dicts)) )
 
         # Save if it's big enough, or if it's the last qdict
         max_qds_len = 20_000 # num here corr. to orig qd len
-        if ( len(qds_to_save) >= max_qds_len) or (qd_idx == end_slice_idx - 1):
+        if ( len(qds_to_save) >= max_qds_len) or (orig_idx == end_slice_idx - 1):
             path_suffix = f"{qd_save_dir}/pkl/from_orig_qd_{qds_to_save[0][0]}_to_{qds_to_save[-1][0]}.p"
             qd_lst_savefnm = bkt_pre + path_suffix
             num_saved_pkls += 1
 
             start_tm = time.time()
             pickle.dump( qds_to_save, open( qd_lst_savefnm, "wb" ) )
-            logger.info(f"pkl {path_suffix} saved in in {time.time() - start_tm}s")
+            logger.info(f"pkl {path_suffix} saved in {time.time() - start_tm}s")
 
             qds_to_save = []
 
@@ -375,7 +390,10 @@ if __name__ == "__main__":
         # OR just try streaming it into one huge file, but stopping when we get the kill signal?
 
 
-    logger.info(f"Done; skipped {', '.join(qds_skipped)}\n")
+    if len(qds_skipped) > 0:
+        logger.info(f"Done; \nskipped {', '.join(qds_skipped)}\n")
+    else:
+        logger.info(f"Done")
 
     tg_notify(f"DONE - {args.tpunm} - saved {num_saved_pkls} pkls")
     upload_logs_to_bucket(start_time_date, args.tpunm)
