@@ -349,7 +349,7 @@ if __name__ == "__main__":
         qds_to_save.append( (qd_idx, list(ret_dicts)) )
 
         # Save if it's big enough, or if it's the last qdict
-        max_qds_len = 25_000 # num here corr. to orig qd len
+        max_qds_len = 20_000 # num here corr. to orig qd len
         if ( len(qds_to_save) >= max_qds_len) or (qd_idx == end_slice_idx - 1):
             path_suffix = f"{qd_save_dir}/pkl/from_orig_qd_{qds_to_save[0][0]}_to_{qds_to_save[-1][0]}.p"
             qd_lst_savefnm = bkt_pre + path_suffix
@@ -358,6 +358,8 @@ if __name__ == "__main__":
             start_tm = time.time()
             pickle.dump( qds_to_save, open( qd_lst_savefnm, "wb" ) )
             logger.info(f"pkl {path_suffix} saved in in {time.time() - start_tm}s")
+
+            qds_to_save = []
 
         # save_bidx_qd = partial(save_bidx_qd_origidx, qd_save_dir, qd_idx)
 
