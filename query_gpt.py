@@ -116,7 +116,7 @@ def upload_logs_to_bucket(start_time_date:str, tpu_nm:str):
 def gracefully_exit(start_time_date:str, tpu_nm:str):
     logging.info("Gracefully exited")
     upload_logs_to_bucket(start_time_date, tpu_nm)
-    tg_notify("exitted - {tpu_nm}")
+    tg_notify(f"exitted - {tpu_nm}")
 
     sys.exit(0)
 
@@ -245,11 +245,11 @@ def run_queries(batch_sz: int, ask_func, qd: Dict):
     return ret_qdicts 
 
 
-def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
-    qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
+# def save_bidx_qd_origidx(qd_save_dir, orig_qd_idx: int, batch_idx:int, ret_qd):
+#     qd_savefnm = f"{qd_save_dir}/{orig_qd_idx}_{batch_idx}.json"
 
-    with open(bkt_pre+qd_savefnm, 'w') as f_out:
-        ujson.dump(ret_qd, f_out)
+#     with open(bkt_pre+qd_savefnm, 'w') as f_out:
+#         ujson.dump(ret_qd, f_out)
 
 
 if __name__ == "__main__":
@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
         len_prompt = len( tokenizer.encode(orig_qd["prompt"]) )
         if len_prompt > setup_params["seq"]:
-            logger.info("qd_idx {qd_idx},  entity {ent_nm} too long; length is {len_prompt} tokens")
+            logger.info(f"qd_idx {qd_idx},  entity {ent_nm} too long; length is {len_prompt} tokens")
             qds_skipped.append(qd_idx)
             continue
         
