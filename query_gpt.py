@@ -318,8 +318,8 @@ if __name__ == "__main__":
     qds_to_infer = (qd for qd in input_qds[start_idx:end_slice_idx])
 
     ## Log on wandb that I'm using pkl from before
-    input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_50k_ents", type="input_qdict_pkl", description="shorter akanv templates; 50k entities")
-    input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_50k_ents')
+    input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_50k_ents_from_edited_dump", type="input_qdict_pkl", description="for 50k entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
+    input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_50k_ents_from_edited_dump')
     run.use_artifact(input_qdict_pkl)
 
 
@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
         len_prompt = len( tokenizer.encode(orig_qd["prompt"]) )
         if len_prompt > setup_params["seq"]:
-            logger.info(f"qd_idx {qd_idx},  entity {ent_nm} too long; length is {len_prompt} tokens")
+            logger.info(f"qd_idx {qd_idx}, entity {orig_qd["ent_nm"]} too long; length is {len_prompt} tokens")
             qds_skipped.append(qd_idx)
             continue
         
@@ -373,9 +373,7 @@ if __name__ == "__main__":
         # OR just try streaming it into one huge file, but stopping when we get the kill signal?
 
 
-    logger.info("Done\n")
-    if len(qds_skipped) > 0:
-        tg_notify(f"DONE - {args.tpunm} - skipped {', '.join(qds_skipped)}; saved {num_saved_pkls} pkls")
-    else:
-        tg_notify(f"DONE - {args.tpunm} - saved {num_saved_pkls} pkls")
+    logger.info(f"Done; skipped {', '.join(qds_skipped)}\n")
+
+    tg_notify(f"DONE - {args.tpunm} - saved {num_saved_pkls} pkls")
     upload_logs_to_bucket(start_time_date, args.tpunm)
