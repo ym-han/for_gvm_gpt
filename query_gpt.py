@@ -336,7 +336,7 @@ if __name__ == "__main__":
 
         len_prompt = len( tokenizer.encode(orig_qd["prompt"]) )
         if len_prompt > setup_params["seq"]:
-            logger.info(f"qd_idx {qd_idx}, entity {orig_qd["ent_nm"]} too long; length is {len_prompt} tokens")
+            logger.info(f"qd_idx {qd_idx}, entity {orig_qd['ent_nm']} too long; token length is {len_prompt} tokens")
             qds_skipped.append(qd_idx)
             continue
         
