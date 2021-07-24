@@ -303,7 +303,7 @@ if __name__ == "__main__":
 					 group = setup_params["group_id"],
 					 job_type = "gptj_inference",
 					 notes = "scaling up inference with batches",
-					 name = f"{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
+					 name = f"secrun_{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
 					 config = {**infer_config, 
 							  "start_idx": args.startidx, 
 							  "tpu_name": args.tpunm,
