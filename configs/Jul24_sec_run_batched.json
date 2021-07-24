@@ -1,0 +1,15 @@
+{
+  "cores_per_replica": 8,
+  "per_replica_batch": 8,
+
+  "tpu_size": 8,
+
+  "bucket": "coref_gpt",
+  "model_dir": "slim_chkpt",
+  "model_tar_path": "model_zstd/slim_chkpt.tar.zstd",
+
+  "input_qd_pkl": "orig_querydicts/pkl_gptj_infer_Jul19_2021/in_qd_ent_0_to_50k.p", 
+  "qd_save_dir": "results/akanv_4entlst/sec_run",
+
+  "group_id": "gptj_infer_Jul19_2021"
+}
