@@ -303,7 +303,7 @@ if __name__ == "__main__":
 					 group = setup_params["group_id"],
 					 job_type = "gptj_inference",
 					 notes = "scaling up inference with batches",
-					 name = f"secrun_{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
+					 name = f"50to100k_{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
 					 config = {**infer_config, 
 							  "start_idx": args.startidx, 
 							  "tpu_name": args.tpunm,
@@ -339,8 +339,8 @@ if __name__ == "__main__":
 						if prompt_not_too_long(qd["prompt"]) )
 
 	## Log on wandb that I'm using pkl from before
-	input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_50k_ents_from_edited_dump", type="input_qdict_pkl", description="for 50k entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
-	input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_50k_ents_from_edited_dump')
+	input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_idx50k_to_100k_ents_from_edited_dump", type="input_qdict_pkl", description="idx 50k to 100_001 entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
+	input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_idx50k_to_100k_ents_from_edited_dump')
 	run.use_artifact(input_qdict_pkl)
 
 
@@ -370,7 +370,7 @@ if __name__ == "__main__":
 		qds_to_save.append( (orig_idx, list(ret_dicts)) )
 
 		# Save if it's big enough, or if it's the last qdict
-		max_qds_len = 40_000 # num here corr. to orig qd len
+		max_qds_len = 45_000 # num here corr. to orig qd len
 		if ( len(qds_to_save) >= max_qds_len) or (orig_idx == end_slice_idx - 1):
 			path_suffix = f"{qd_save_dir}/from_orig_qd_{qds_to_save[0][0]}_to_{qds_to_save[-1][0]}.p"
 			qd_lst_savefnm = bkt_pre + path_suffix
