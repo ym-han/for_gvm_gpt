@@ -70,7 +70,7 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
 def extract_nm_fr_resp(response:str = "") -> str:
     if "]" not in response: return "no closing ]"
 
-    end_idx = response.find("]tpu_related/")
+    end_idx = response.find("]")
     return response[: end_idx]
 
 def rm_white_space(strg: str) -> str:
