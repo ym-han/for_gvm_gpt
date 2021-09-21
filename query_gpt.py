@@ -237,7 +237,7 @@ def add_resp_to_qdict(qdict, response_str:str):
 
 """ Feed exactly one q_dict into GPT, get `batch_sz` responses back, augment, return """
 def run_queries(batch_sz: int, ask_func, qd: Dict):  
-	logger.debug(f"batch_sz is {batch_sz}")
+	#logger.debug(f"batch_sz is {batch_sz}")
 
 	# 1. Replicate query dict `batch_sz` times, and feed `qd` into GPT to get a list of batch_sz responses
 	# 2. Augment the batch_sz replicates with the responses
@@ -335,7 +335,7 @@ if __name__ == "__main__":
 		ask = ask_func_for_testing
 	else:
 		tokenizer, network, total_batch = setup_gpt(setup_params)
-		ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch)
+		ask = partial(ask_gpt, setup_params=setup_params, tokenizer=tokenizer, network=network, total_batch=total_batch, logger=logger)
 
 	def prompt_not_too_long(prompt): 
 		return len(tokenizer.encode(prompt)) <= setup_params["seq"]
