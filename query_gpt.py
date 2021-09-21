@@ -101,11 +101,12 @@ def enum(lst): return L(L.range(lst), lst).zip()
 #     L( [ (0, 'a'), (1, 'b') ] ) 
 #     )
 
-def stopped(signum, frame):
+
+def stopped_base(logger, signum, frame):
 	global stop_received
 	stop_received = True
 
-	logging.error("Stop signal received")
+	logger.error("Stop signal received")
 
 
 def upload_logs_to_bucket(start_time_date:str, tpu_nm:str):
@@ -113,12 +114,13 @@ def upload_logs_to_bucket(start_time_date:str, tpu_nm:str):
 	upload_blob(bkt_nm, str(info_log_path), f"logs/logs_started_{start_time_date}/{tpu_nm}/info.log")
    
 
-def gracefully_exit(start_time_date:str, tpu_nm:str):
-	logging.info("Gracefully exited")
+def gracefully_exit_base(logger, start_time_date:str, tpu_nm:str):
+	logger.info("Gracefully exited")
 	upload_logs_to_bucket(start_time_date, tpu_nm)
 	tg_notify(f"exitted - {tpu_nm}")
 
 	sys.exit(0)
+
 
 
 # @dataclass
@@ -197,7 +199,9 @@ def infer(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, c
 	return samples
 
 """ If total_batch == 8, then this returns a list of 8 responses """
-def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10):
+def ask_gpt(setup_params:Dict=None, tokenizer=None, network=None, 
+	total_batch=8, context=None, top_p=0.9, temp=0.9, gen_len=10, logger=None):
+
 	logger.debug(f"top_p is {top_p};temp is {temp}\n")
 	seq = setup_params["seq"]
 
@@ -270,9 +274,6 @@ if __name__ == "__main__":
 	# Init params
 	args = parse_args()
 	
-	signal.signal(signal.SIGINT, stopped)
-	signal.signal(signal.SIGTERM, stopped)
-
 	# Set up params
 	setup_params = std_params
 	infer_config = ujson.load(open(args.config))
@@ -294,6 +295,14 @@ if __name__ == "__main__":
 	logger.addHandler(tg_hdlr)
 
 	logger = logging.LoggerAdapter(logger, {'tpu_name': str(args.tpunm)})
+
+	## Pass logger as param to the relevant functions
+	gracefully_exit = partial(gracefully_exit_base, logger)
+
+	stopped = partial(stopped_base, logger)
+	signal.signal(signal.SIGINT, stopped)
+	signal.signal(signal.SIGTERM, stopped)
+
 
 	start_idx, n_qdicts_to_infer = int(args.startidx), int(args.step)
 	end_slice_idx = start_idx + n_qdicts_to_infer
@@ -334,13 +343,14 @@ if __name__ == "__main__":
 
 	# Load query dicts
 	input_qds = pickle.load( open( input_qd_pkl_path, "rb" ) )
+
 	qds_to_infer = ( (orig_idx, qd) for orig_idx, qd in 
 						zip(range(start_idx, end_slice_idx), input_qds[start_idx:end_slice_idx]) 
 						if prompt_not_too_long(qd["prompt"]) )
 
 	## Log on wandb that I'm using pkl from before
-	input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_idx50k_to_100k_ents_from_edited_dump", type="input_qdict_pkl", description="idx 50k to 100_001 entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
-	input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_idx50k_to_100k_ents_from_edited_dump')
+	input_qdict_pkl = wandb.Artifact("akanvShort_in_qd_pkl_idx100k_to_200k_ents_from_edited_dump", type="input_qdict_pkl", description="idx 100k to 200_001 entities; no expn of uncert in qn prompts; based on EDITED kensho dump")
+	input_qdict_pkl.add_reference(input_qd_pkl_path, name='akanvShort_in_qd_pkl_idx100k_to_200k_ents_from_edited_dump')
 	run.use_artifact(input_qdict_pkl)
 
 
