@@ -312,7 +312,7 @@ if __name__ == "__main__":
 					 group = setup_params["group_id"],
 					 job_type = "gptj_inference",
 					 notes = "scaling up inference with batches",
-					 name = f"50to100k_{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
+					 name = f"100kto200k_{short_starttd}_{str(args.tpunm)}_{str(args.startidx)}",
 					 config = {**infer_config, 
 							  "start_idx": args.startidx, 
 							  "tpu_name": args.tpunm,
@@ -380,7 +380,7 @@ if __name__ == "__main__":
 		qds_to_save.append( (orig_idx, list(ret_dicts)) )
 
 		# Save if it's big enough, or if it's the last qdict
-		max_qds_len = 45_000 # num here corr. to orig qd len
+		max_qds_len = 50_000 # num here corr. to orig qd len
 		if ( len(qds_to_save) >= max_qds_len) or (orig_idx == end_slice_idx - 1):
 			path_suffix = f"{qd_save_dir}/from_orig_qd_{qds_to_save[0][0]}_to_{qds_to_save[-1][0]}.p"
 			qd_lst_savefnm = bkt_pre + path_suffix
